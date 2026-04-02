@@ -1,11 +1,20 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, MutableRefObject, Dispatch, SetStateAction } from 'react';
+import { GameState, Tactic, Overlay, AnimState, Position } from '../types';
 
-function lerp(a, b, t) { return a + (b - a) * t; }
-function lerpPos(a, b, t) { return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) }; }
-function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+function lerp(a: number, b: number, t: number): number { return a + (b - a) * t; }
+function lerpPos(a: Position, b: Position, t: number): Position { return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) }; }
+function easeInOut(t: number): number { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
 
-export function useTacticAnimation(stateRef, setOverlay, requestDraw) {
-  const animRef = useRef({
+export function useTacticAnimation(
+  stateRef: MutableRefObject<GameState>,
+  setOverlay: Dispatch<SetStateAction<Overlay>>,
+  requestDraw: () => void,
+): {
+  start: (tactic: Tactic) => void;
+  stop: () => void;
+  animRef: MutableRefObject<AnimState>;
+} {
+  const animRef = useRef<AnimState>({
     running: false,
     frameId: null,
     tactic: null,
@@ -25,7 +34,7 @@ export function useTacticAnimation(stateRef, setOverlay, requestDraw) {
     setOverlay({ name: '', desc: '' });
   }, [setOverlay]);
 
-  const start = useCallback((tactic) => {
+  const start = useCallback((tactic: Tactic) => {
     stop();
     const a = animRef.current;
     a.tactic = tactic;
@@ -54,39 +63,39 @@ export function useTacticAnimation(stateRef, setOverlay, requestDraw) {
       a.passAnim = { from: {...from}, to: {...to}, progress: 0 };
     }
 
-    const animate = (now) => {
+    const animate = (now: number): void => {
       if (!a.running || !a.tactic) return;
       const elapsed = now - a.stepStartTime;
-      const duration = a.nextStep.duration || 1000;
+      const duration = a.nextStep!.duration || 1000;
       const t = Math.min(1, elapsed / duration);
       const et = easeInOut(t);
       const s = stateRef.current;
 
       for (let i = 0; i < 5; i++) {
-        s.teamA[i] = lerpPos(a.prevStep.teamA[i], a.nextStep.teamA[i], et);
-        s.teamB[i] = lerpPos(a.prevStep.teamB[i], a.nextStep.teamB[i], et);
+        s.teamA[i] = lerpPos(a.prevStep!.teamA[i], a.nextStep!.teamA[i], et);
+        s.teamB[i] = lerpPos(a.prevStep!.teamB[i], a.nextStep!.teamB[i], et);
       }
 
       if (a.passAnim) {
         a.passAnim.progress = et;
         s.ball = lerpPos(a.passAnim.from, a.passAnim.to, et);
       } else {
-        s.ball = lerpPos(a.prevStep.ball, a.nextStep.ball, et);
+        s.ball = lerpPos(a.prevStep!.ball, a.nextStep!.ball, et);
       }
 
-      setOverlay({ name: a.tactic.name, desc: a.nextStep.desc || '' });
+      setOverlay({ name: a.tactic!.name, desc: a.nextStep!.desc || '' });
       requestDraw();
 
       if (t >= 1) {
         // apply final positions
-        s.teamA = a.nextStep.teamA.map(p => ({...p}));
-        s.teamB = a.nextStep.teamB.map(p => ({...p}));
-        s.ball = {...a.nextStep.ball};
+        s.teamA = a.nextStep!.teamA.map(p => ({...p}));
+        s.teamB = a.nextStep!.teamB.map(p => ({...p}));
+        s.ball = {...a.nextStep!.ball};
         a.stepIndex++;
 
-        if (a.stepIndex < a.tactic.steps.length) {
-          a.prevStep = a.tactic.steps[a.stepIndex - 1];
-          a.nextStep = a.tactic.steps[a.stepIndex];
+        if (a.stepIndex < a.tactic!.steps.length) {
+          a.prevStep = a.tactic!.steps[a.stepIndex - 1];
+          a.nextStep = a.tactic!.steps[a.stepIndex];
           a.stepStartTime = now + 400;
           a.passAnim = null;
           if (a.nextStep.pass) {

@@ -1,3 +1,5 @@
+import { Layout } from '../types';
+
 // FIBA court dimensions (meters)
 export const COURT_M = { w: 28, h: 15 };
 export const BASKET_DIST = 1.575;
@@ -15,10 +17,10 @@ export const PAINT_FILL = 'rgba(50,30,15,0.32)';
 export const PLAYER_R = 0.44; // meters
 export const BALL_R = 0.30;
 
-export function calcLayout(containerW, containerH) {
+export function calcLayout(containerW: number, containerH: number): Layout {
   const aspect = COURT_M.w / COURT_M.h;
   const pad = 50;
-  let cw, ch;
+  let cw: number, ch: number;
   if ((containerW - pad * 2) / (containerH - pad * 2) > aspect) {
     ch = containerH - pad * 2;
     cw = ch * aspect;
@@ -37,10 +39,10 @@ export function calcLayout(containerW, containerH) {
   };
 }
 
-export function courtToCanvas(layout, mx, my) {
+export function courtToCanvas(layout: Layout, mx: number, my: number): { x: number; y: number } {
   return { x: layout.courtX + mx * layout.scale, y: layout.courtY + my * layout.scale };
 }
 
-export function canvasToCourt(layout, px, py) {
+export function canvasToCourt(layout: Layout, px: number, py: number): { x: number; y: number } {
   return { x: (px - layout.courtX) / layout.scale, y: (py - layout.courtY) / layout.scale };
 }

@@ -3,10 +3,11 @@ import {
   FT_RADIUS, CENTER_R, RA_RADIUS, LINE_COLOR, PAINT_FILL,
   PLAYER_R, BALL_R, courtToCanvas,
 } from './court';
+import { Layout, Position, Stroke, PassAnim } from '../types';
 
-function m2px(layout, m) { return m * layout.scale; }
+function m2px(layout: Layout, m: number): number { return m * layout.scale; }
 
-function roundRect(ctx, x, y, w, h, r) {
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -20,7 +21,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawHalf(ctx, layout, right) {
+function drawHalf(ctx: CanvasRenderingContext2D, layout: Layout, right: boolean): void {
   const { courtX, courtW, courtH, courtY, scale } = layout;
   const midY = courtY + courtH / 2;
   const basketX = right ? courtX + courtW - m2px(layout, BASKET_DIST) : courtX + m2px(layout, BASKET_DIST);
@@ -69,7 +70,7 @@ function drawHalf(ctx, layout, right) {
   ctx.strokeStyle = LINE_COLOR; ctx.lineWidth = 2;
 }
 
-export function drawCourt(ctx, layout) {
+export function drawCourt(ctx: CanvasRenderingContext2D, layout: Layout): void {
   const { courtX, courtY, courtW, courtH } = layout;
   const midX = courtX + courtW / 2, midY = courtY + courtH / 2;
 
@@ -100,7 +101,7 @@ export function drawCourt(ctx, layout) {
   drawHalf(ctx, layout, true);
 }
 
-export function drawPlayer(ctx, layout, team, index, pos) {
+export function drawPlayer(ctx: CanvasRenderingContext2D, layout: Layout, team: string, index: number, pos: Position): void {
   const { x, y } = courtToCanvas(layout, pos.x, pos.y);
   const r = PLAYER_R * layout.scale;
   const isA = team === 'teamA';
@@ -124,7 +125,7 @@ export function drawPlayer(ctx, layout, team, index, pos) {
   ctx.fillText(String(index + 1), x, y + 0.5);
 }
 
-export function drawBall(ctx, layout, pos) {
+export function drawBall(ctx: CanvasRenderingContext2D, layout: Layout, pos: Position): void {
   const { x, y } = courtToCanvas(layout, pos.x, pos.y);
   const r = BALL_R * layout.scale;
 
@@ -140,7 +141,7 @@ export function drawBall(ctx, layout, pos) {
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.stroke();
 }
 
-export function drawStrokes(ctx, drawings, currentStroke) {
+export function drawStrokes(ctx: CanvasRenderingContext2D, drawings: Stroke[], currentStroke: Stroke | null): void {
   const all = currentStroke ? [...drawings, currentStroke] : drawings;
   for (const s of all) {
     if (s.points.length < 2) continue;
@@ -151,7 +152,7 @@ export function drawStrokes(ctx, drawings, currentStroke) {
   }
 }
 
-export function drawPassTrail(ctx, layout, passAnim) {
+export function drawPassTrail(ctx: CanvasRenderingContext2D, layout: Layout, passAnim: PassAnim | null): void {
   if (!passAnim || passAnim.progress <= 0) return;
   const from = courtToCanvas(layout, passAnim.from.x, passAnim.from.y);
   const to = courtToCanvas(layout, passAnim.to.x, passAnim.to.y);
@@ -164,7 +165,7 @@ export function drawPassTrail(ctx, layout, passAnim) {
   ctx.restore();
 }
 
-export function drawTacticOverlay(ctx, layout, tacticName, tacticDesc) {
+export function drawTacticOverlay(ctx: CanvasRenderingContext2D, layout: Layout, tacticName: string, tacticDesc: string): void {
   if (!tacticName) return;
   const { courtX, courtY, courtW, courtH, scale } = layout;
 

@@ -1,14 +1,32 @@
 import { memo } from 'react';
 import { tactics } from '../data/tactics';
 
-const COLORS = [
+interface ColorOption {
+  color: string;
+  label: string;
+}
+
+const COLORS: ColorOption[] = [
   { color: '#ffffff', label: '白' },
   { color: '#ff4466', label: '红' },
   { color: '#44bbff', label: '蓝' },
   { color: '#ffcc00', label: '黄' },
 ];
 
-function Toolbar({ penColor, setPenColor, onUndo, onClear, onReset, onPlay, onStop, onScreenshot, selectedTactic, setSelectedTactic }) {
+interface ToolbarProps {
+  penColor: string;
+  setPenColor: (color: string) => void;
+  onUndo: () => void;
+  onClear: () => void;
+  onReset: () => void;
+  onPlay: () => void;
+  onStop: () => void;
+  onScreenshot: () => void;
+  selectedTactic: string;
+  setSelectedTactic: (value: string) => void;
+}
+
+function Toolbar({ penColor, setPenColor, onUndo, onClear, onReset, onPlay, onStop, onScreenshot, selectedTactic, setSelectedTactic }: ToolbarProps) {
   return (
     <div className="toolbar">
       <button onClick={onUndo}>↩ 撤销</button>

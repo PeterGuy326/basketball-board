@@ -3,14 +3,15 @@ import Toolbar from './components/Toolbar';
 import CourtCanvas from './components/CourtCanvas';
 import { useTacticAnimation } from './hooks/useTacticAnimation';
 import { tactics, defaultPositions } from './data/tactics';
+import { GameState, Overlay, Stroke, CourtCanvasHandle } from './types';
 
 export default function App() {
-  const [penColor, setPenColor] = useState('#ffffff');
-  const [selectedTactic, setSelectedTactic] = useState('');
-  const [overlay, setOverlay] = useState({ name: '', desc: '' });
-  const stateRef = useRef(defaultPositions());
-  const drawingsRef = useRef([]);
-  const canvasRef = useRef(null);
+  const [penColor, setPenColor] = useState<string>('#ffffff');
+  const [selectedTactic, setSelectedTactic] = useState<string>('');
+  const [overlay, setOverlay] = useState<Overlay>({ name: '', desc: '' });
+  const stateRef = useRef<GameState>(defaultPositions());
+  const drawingsRef = useRef<Stroke[]>([]);
+  const canvasRef = useRef<CourtCanvasHandle>(null);
 
   const requestDraw = useCallback(() => {
     canvasRef.current?.draw();
@@ -18,7 +19,7 @@ export default function App() {
 
   const { start, stop, animRef } = useTacticAnimation(stateRef, setOverlay, requestDraw);
 
-  const [, setDrawTick] = useState(0);
+  const [, setDrawTick] = useState<number>(0);
   const onDrawingsChange = useCallback(() => setDrawTick(t => t + 1), []);
 
   const handleUndo = useCallback(() => {

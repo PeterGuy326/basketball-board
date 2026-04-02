@@ -1,19 +1,33 @@
-import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, MutableRefObject, MouseEvent, TouchEvent } from 'react';
 import { calcLayout, canvasToCourt, PLAYER_R, BALL_R } from '../utils/court';
 import { drawCourt, drawPlayer, drawBall, drawStrokes, drawPassTrail, drawTacticOverlay } from '../utils/draw';
+import { GameState, Overlay, Stroke, AnimState, Layout, HitResult, CourtCanvasHandle } from '../types';
 
-const CourtCanvas = forwardRef(function CourtCanvas({ stateRef, animRef, overlay, penColor, drawingsRef, onDrawingsChange }, ref) {
-  const canvasRef = useRef(null);
-  const layoutRef = useRef(null);
-  const currentStrokeRef = useRef(null);
-  const draggingRef = useRef(null);
-  const wrapRef = useRef(null);
+interface CourtCanvasProps {
+  stateRef: MutableRefObject<GameState>;
+  animRef: MutableRefObject<AnimState>;
+  overlay: Overlay;
+  penColor: string;
+  drawingsRef: MutableRefObject<Stroke[]>;
+  onDrawingsChange: () => void;
+}
+
+const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function CourtCanvas(
+  { stateRef, animRef, overlay, penColor, drawingsRef, onDrawingsChange },
+  ref,
+) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const layoutRef = useRef<Layout | null>(null);
+  const currentStrokeRef = useRef<Stroke | null>(null);
+  const draggingRef = useRef<HitResult | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const layout = layoutRef.current;
     if (!canvas || !layout) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const { W, H } = layout;
 
     ctx.clearRect(0, 0, W, H);
@@ -50,6 +64,7 @@ const CourtCanvas = forwardRef(function CourtCanvas({ stateRef, animRef, overlay
     canvas.width = layout.W * dpr;
     canvas.height = layout.H * dpr;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     layoutRef.current = layout;
     draw();
@@ -64,7 +79,7 @@ const CourtCanvas = forwardRef(function CourtCanvas({ stateRef, animRef, overlay
   // redraw when overlay changes
   useEffect(() => { draw(); }, [overlay, draw]);
 
-  const hitTest = useCallback((px, py) => {
+  const hitTest = useCallback((px: number, py: number): HitResult | null => {
     const layout = layoutRef.current;
     if (!layout) return null;
     const { x, y } = canvasToCourt(layout, px, py);
@@ -75,13 +90,16 @@ const CourtCanvas = forwardRef(function CourtCanvas({ stateRef, animRef, overlay
     return null;
   }, [stateRef]);
 
-  const getPos = useCallback((e) => {
-    const r = canvasRef.current.getBoundingClientRect();
-    if (e.touches) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  const getPos = useCallback((e: MouseEvent | TouchEvent): { x: number; y: number } => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    if ('touches' in e && e.touches.length > 0) {
+      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    }
+    const me = e as MouseEvent;
+    return { x: me.clientX - r.left, y: me.clientY - r.top };
   }, []);
 
-  const onDown = useCallback((e) => {
+  const onDown = useCallback((e: MouseEvent | TouchEvent) => {
     if (animRef.current.running) return;
     e.preventDefault();
     const p = getPos(e);
@@ -90,7 +108,7 @@ const CourtCanvas = forwardRef(function CourtCanvas({ stateRef, animRef, overlay
     else currentStrokeRef.current = { points: [p], color: penColor };
   }, [animRef, getPos, hitTest, penColor]);
 
-  const onMove = useCallback((e) => {
+  const onMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (animRef.current.running) return;
     e.preventDefault();
     const p = getPos(e);
