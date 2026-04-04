@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, MutableRefObject, MouseEvent, TouchEvent } from 'react';
-import { calcLayout, canvasToCourt, PLAYER_R, BALL_R } from '../utils/court';
+import { calcLayout, courtToCanvas, canvasToCourt, PLAYER_R, BALL_R } from '../utils/court';
 import { drawCourt, drawPlayer, drawBall, drawStrokes, drawArrows, drawPassTrail, drawMovementTrails, drawTacticOverlay } from '../utils/draw';
 import { GameState, Overlay, Stroke, Arrow, AnimState, Layout, HitResult, CourtCanvasHandle, ToolMode, LineStyle, UndoEntry } from '../types';
 
@@ -29,6 +29,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
   const wrapRef = useRef<HTMLDivElement>(null);
   // For curved arrows: phase 0 = drawing line, phase 1 = adjusting control point
   const curvedPhaseRef = useRef<number>(0);
+  const hoverRef = useRef<HitResult | null>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -63,6 +64,23 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     for (let i = 0; i < 5; i++) drawPlayer(ctx, layout, 'teamA', i, s.teamA[i]);
     for (let i = 0; i < 5; i++) drawPlayer(ctx, layout, 'teamB', i, s.teamB[i]);
     drawBall(ctx, layout, s.ball);
+
+    // Hover highlight ring
+    const h = hoverRef.current;
+    if (h && !anim.running) {
+      const pos = h.type === 'ball' ? s.ball : s[h.type][h.index];
+      const { x, y } = courtToCanvas(layout, pos.x, pos.y);
+      const r = (h.type === 'ball' ? BALL_R : PLAYER_R) * layout.scale;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     drawTacticOverlay(ctx, layout, overlay.name, overlay.desc);
   }, [stateRef, animRef, overlay, drawingsRef, arrowsRef]);
 
@@ -137,6 +155,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     const hit = hitTest(p.x, p.y);
     if (hit) {
       draggingRef.current = hit;
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
     } else if (toolMode === 'pen') {
       currentStrokeRef.current = { points: [p], color: penColor };
     } else {
@@ -160,6 +179,18 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (animRef.current.running) return;
     e.preventDefault();
     const p = getPos(e);
+
+    // Hover detection (only when not dragging/drawing)
+    if (!draggingRef.current && !currentStrokeRef.current && !currentArrowRef.current) {
+      const hit = hitTest(p.x, p.y);
+      const prev = hoverRef.current;
+      if (hit?.type !== prev?.type || hit?.index !== prev?.index) {
+        hoverRef.current = hit;
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = hit ? 'grab' : 'crosshair';
+        draw();
+      }
+    }
 
     if (draggingRef.current) {
       const layout = layoutRef.current;
@@ -205,6 +236,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     }
     currentStrokeRef.current = null;
     draggingRef.current = null;
+    if (canvasRef.current) canvasRef.current.style.cursor = 'crosshair';
 
     if (currentArrowRef.current) {
       const a = currentArrowRef.current;

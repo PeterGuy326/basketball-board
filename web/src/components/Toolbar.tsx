@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { tactics } from '../data/tactics';
 import { ToolMode, LineStyle, Tactic } from '../types';
 
@@ -12,6 +12,13 @@ const COLORS: ColorOption[] = [
   { color: '#ff4466', label: '红' },
   { color: '#44bbff', label: '蓝' },
   { color: '#ffcc00', label: '黄' },
+];
+
+const SPEEDS = [
+  { value: 0.5, label: '0.5x' },
+  { value: 1, label: '1x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 2, label: '2x' },
 ];
 
 interface ToolbarProps {
@@ -37,6 +44,10 @@ interface ToolbarProps {
   editStepCount: number;
   halfCourt: boolean;
   onToggleHalfCourt: () => void;
+  animSpeed: number;
+  onSpeedChange: (speed: number) => void;
+  onDeleteTactic: () => void;
+  canDeleteTactic: boolean;
 }
 
 type DrawTool = `${ToolMode}-${LineStyle}`;
@@ -58,6 +69,8 @@ function Toolbar({
   selectedTactic, setSelectedTactic, customTactics,
   editMode, onToggleEditMode, onRecordStep, onSaveTactic, editStepCount,
   halfCourt, onToggleHalfCourt,
+  animSpeed, onSpeedChange,
+  onDeleteTactic, canDeleteTactic,
 }: ToolbarProps) {
   const currentDrawTool: DrawTool = `${toolMode}-${lineStyle}`;
 
@@ -66,6 +79,28 @@ function Toolbar({
     setToolMode(mode);
     setLineStyle(style);
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        onUndo();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        onPlay();
+      } else if (e.key === 'Escape') {
+        onStop();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (canDeleteTactic) onDeleteTactic();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onUndo, onPlay, onStop, onDeleteTactic, canDeleteTactic]);
 
   return (
     <div className="toolbar">
@@ -90,7 +125,7 @@ function Toolbar({
         />
       ))}
 
-      <button onClick={onUndo}>↩ 撤销</button>
+      <button onClick={onUndo} title="撤销 (Ctrl+Z)">↩ 撤销</button>
       <button onClick={onClear}>🗑 清除</button>
 
       <div className="sep" />
@@ -98,11 +133,13 @@ function Toolbar({
       {/* Tactics */}
       <select value={selectedTactic} onChange={e => setSelectedTactic(e.target.value)}>
         <option value="">选择战术</option>
-        <optgroup label="预置">
-          {tactics.map((t, i) => (
-            <option key={`preset-${i}`} value={`preset-${i}`}>{t.name}</option>
-          ))}
-        </optgroup>
+        {tactics.length > 0 && (
+          <optgroup label="预置">
+            {tactics.map((t, i) => (
+              <option key={`preset-${i}`} value={`preset-${i}`}>{t.name}</option>
+            ))}
+          </optgroup>
+        )}
         {customTactics.length > 0 && (
           <optgroup label="自定义">
             {customTactics.map((t, i) => (
@@ -111,12 +148,27 @@ function Toolbar({
           </optgroup>
         )}
       </select>
-      <button onClick={onPlay}>▶ 播放</button>
-      <button onClick={onStop}>⏹ 停止</button>
+      <button onClick={onPlay} title="播放 (Space)">▶ 播放</button>
+      <button onClick={onStop} title="停止 (Esc)">⏹ 停止</button>
+      {canDeleteTactic && (
+        <button onClick={onDeleteTactic} title="删除选中的自定义战术 (Delete)">🗑</button>
+      )}
+
+      {/* Speed */}
+      <select
+        value={animSpeed}
+        onChange={e => onSpeedChange(parseFloat(e.target.value))}
+        className="speed-select"
+        title="动画速度"
+      >
+        {SPEEDS.map(s => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
 
       <div className="sep" />
 
-      {/* Edit mode - compact */}
+      {/* Edit mode */}
       <button
         className={editMode ? 'active edit-btn' : ''}
         onClick={onToggleEditMode}

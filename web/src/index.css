@@ -34,6 +34,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0e0e; t
 .toolbar .color-dot.active { border-color: #fff; transform: scale(1.2); box-shadow: 0 0 8px rgba(255,255,255,0.2); }
 
 .toolbar .draw-tool-select { min-width: 130px; }
+.toolbar .speed-select { width: 55px; }
 
 .inline-dialog {
   display: flex; align-items: center; gap: 8px;

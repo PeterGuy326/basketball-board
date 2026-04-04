@@ -4,7 +4,7 @@ import CourtCanvas from './components/CourtCanvas';
 import { useTacticAnimation } from './hooks/useTacticAnimation';
 import { tactics, defaultPositions } from './data/tactics';
 import { GameState, Overlay, Stroke, Arrow, CourtCanvasHandle, ToolMode, LineStyle, Tactic, Step, UndoEntry } from './types';
-import { saveBoardState, loadBoardState, saveCustomTactic, loadCustomTactics, debounce } from './utils/storage';
+import { saveBoardState, loadBoardState, saveCustomTactic, loadCustomTactics, deleteCustomTactic, debounce } from './utils/storage';
 
 export default function App() {
   const [penColor, setPenColor] = useState<string>('#ffffff');
@@ -55,7 +55,13 @@ export default function App() {
     [],
   );
 
-  const { start, stop, animRef } = useTacticAnimation(stateRef, setOverlay, requestDraw);
+  const [animSpeed, setAnimSpeed] = useState<number>(1);
+  const { start, stop, animRef, speedRef } = useTacticAnimation(stateRef, setOverlay, requestDraw);
+
+  const handleSpeedChange = useCallback((speed: number) => {
+    setAnimSpeed(speed);
+    speedRef.current = speed;
+  }, [speedRef]);
 
   const [, setDrawTick] = useState<number>(0);
   const onDrawingsChange = useCallback(() => {
@@ -179,6 +185,16 @@ export default function App() {
     setShowSaveDialog(true);
   }, [editSteps]);
 
+  const handleDeleteTactic = useCallback(() => {
+    if (!selectedTactic.startsWith('custom-')) return;
+    const idx = parseInt(selectedTactic.split('-')[1]);
+    const tactic = customTactics[idx];
+    if (!tactic) return;
+    deleteCustomTactic(tactic.name);
+    setCustomTactics(loadCustomTactics());
+    setSelectedTactic('');
+  }, [selectedTactic, customTactics]);
+
   const handleConfirmSave = useCallback(() => {
     if (!tacticName.trim()) return;
     const tactic: Tactic = { name: tacticName.trim(), steps: editSteps, isCustom: true };
@@ -215,6 +231,10 @@ export default function App() {
         editStepCount={editSteps.length}
         halfCourt={halfCourt}
         onToggleHalfCourt={() => setHalfCourt(h => !h)}
+        animSpeed={animSpeed}
+        onSpeedChange={handleSpeedChange}
+        onDeleteTactic={handleDeleteTactic}
+        canDeleteTactic={selectedTactic.startsWith('custom-')}
       />
       {showStepInput && (
         <div className="inline-dialog">

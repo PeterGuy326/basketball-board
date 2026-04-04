@@ -13,6 +13,7 @@ export function useTacticAnimation(
   start: (tactic: Tactic) => void;
   stop: () => void;
   animRef: MutableRefObject<AnimState>;
+  speedRef: MutableRefObject<number>;
 } {
   const animRef = useRef<AnimState>({
     running: false,
@@ -24,6 +25,8 @@ export function useTacticAnimation(
     nextStep: null,
     passAnim: null,
   });
+
+  const speedRef = useRef<number>(1);
 
   const stop = useCallback(() => {
     const a = animRef.current;
@@ -40,7 +43,6 @@ export function useTacticAnimation(
     a.tactic = tactic;
     a.stepIndex = 0;
 
-    // apply initial step
     const first = tactic.steps[0];
     const s = stateRef.current;
     s.teamA = first.teamA.map(p => ({...p}));
@@ -65,13 +67,13 @@ export function useTacticAnimation(
 
     const animate = (now: number): void => {
       if (!a.running || !a.tactic) return;
-      const elapsed = now - a.stepStartTime;
+      const speed = speedRef.current;
+      const elapsed = (now - a.stepStartTime) * speed;
       const duration = a.nextStep!.duration || 1000;
       const t = Math.max(0, Math.min(1, elapsed / duration));
       const et = easeInOut(t);
       const s = stateRef.current;
 
-      // During the 400ms pause between steps, t=0: stay at prevStep positions
       for (let i = 0; i < 5; i++) {
         s.teamA[i] = lerpPos(a.prevStep!.teamA[i], a.nextStep!.teamA[i], et);
         s.teamB[i] = lerpPos(a.prevStep!.teamB[i], a.nextStep!.teamB[i], et);
@@ -88,7 +90,6 @@ export function useTacticAnimation(
       requestDraw();
 
       if (t >= 1) {
-        // apply final positions
         s.teamA = a.nextStep!.teamA.map(p => ({...p}));
         s.teamB = a.nextStep!.teamB.map(p => ({...p}));
         s.ball = {...a.nextStep!.ball};
@@ -97,7 +98,7 @@ export function useTacticAnimation(
         if (a.stepIndex < a.tactic!.steps.length) {
           a.prevStep = a.tactic!.steps[a.stepIndex - 1];
           a.nextStep = a.tactic!.steps[a.stepIndex];
-          a.stepStartTime = now + 400;
+          a.stepStartTime = now + 400 / speed;
           a.passAnim = null;
           if (a.nextStep.pass) {
             const from = a.prevStep.teamA[a.nextStep.pass[0]];
@@ -117,5 +118,5 @@ export function useTacticAnimation(
     a.frameId = requestAnimationFrame(animate);
   }, [stop, stateRef, setOverlay, requestDraw]);
 
-  return { start, stop, animRef };
+  return { start, stop, animRef, speedRef };
 }
