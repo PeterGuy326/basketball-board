@@ -67,10 +67,11 @@ export function useTacticAnimation(
       if (!a.running || !a.tactic) return;
       const elapsed = now - a.stepStartTime;
       const duration = a.nextStep!.duration || 1000;
-      const t = Math.min(1, elapsed / duration);
+      const t = Math.max(0, Math.min(1, elapsed / duration));
       const et = easeInOut(t);
       const s = stateRef.current;
 
+      // During the 400ms pause between steps, t=0: stay at prevStep positions
       for (let i = 0; i < 5; i++) {
         s.teamA[i] = lerpPos(a.prevStep!.teamA[i], a.nextStep!.teamA[i], et);
         s.teamB[i] = lerpPos(a.prevStep!.teamB[i], a.nextStep!.teamB[i], et);

@@ -1,26 +1,32 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, MutableRefObject, MouseEvent, TouchEvent } from 'react';
 import { calcLayout, canvasToCourt, PLAYER_R, BALL_R } from '../utils/court';
-import { drawCourt, drawPlayer, drawBall, drawStrokes, drawPassTrail, drawTacticOverlay } from '../utils/draw';
-import { GameState, Overlay, Stroke, AnimState, Layout, HitResult, CourtCanvasHandle } from '../types';
+import { drawCourt, drawPlayer, drawBall, drawStrokes, drawArrows, drawPassTrail, drawMovementTrails, drawTacticOverlay } from '../utils/draw';
+import { GameState, Overlay, Stroke, Arrow, AnimState, Layout, HitResult, CourtCanvasHandle, ToolMode, LineStyle } from '../types';
 
 interface CourtCanvasProps {
   stateRef: MutableRefObject<GameState>;
   animRef: MutableRefObject<AnimState>;
   overlay: Overlay;
   penColor: string;
+  toolMode: ToolMode;
+  lineStyle: LineStyle;
   drawingsRef: MutableRefObject<Stroke[]>;
+  arrowsRef: MutableRefObject<Arrow[]>;
   onDrawingsChange: () => void;
 }
 
 const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function CourtCanvas(
-  { stateRef, animRef, overlay, penColor, drawingsRef, onDrawingsChange },
+  { stateRef, animRef, overlay, penColor, toolMode, lineStyle, drawingsRef, arrowsRef, onDrawingsChange },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const layoutRef = useRef<Layout | null>(null);
   const currentStrokeRef = useRef<Stroke | null>(null);
+  const currentArrowRef = useRef<Arrow | null>(null);
   const draggingRef = useRef<HitResult | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // For curved arrows: phase 0 = drawing line, phase 1 = adjusting control point
+  const curvedPhaseRef = useRef<number>(0);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -36,8 +42,19 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
 
     drawCourt(ctx, layout);
     drawStrokes(ctx, drawingsRef.current, currentStrokeRef.current);
+    drawArrows(ctx, arrowsRef.current, currentArrowRef.current);
 
-    const pa = animRef.current.passAnim;
+    const anim = animRef.current;
+    const pa = anim.passAnim;
+
+    // Draw movement trails during animation (lines appear under players)
+    if (anim.running && anim.prevStep && anim.nextStep) {
+      const elapsed = performance.now() - anim.stepStartTime;
+      const duration = anim.nextStep.duration || 1000;
+      const t = Math.max(0, Math.min(1, elapsed / duration));
+      drawMovementTrails(ctx, layout, anim.prevStep, anim.nextStep, t, pa);
+    }
+
     drawPassTrail(ctx, layout, pa);
 
     const s = stateRef.current;
@@ -45,7 +62,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     for (let i = 0; i < 5; i++) drawPlayer(ctx, layout, 'teamB', i, s.teamB[i]);
     drawBall(ctx, layout, s.ball);
     drawTacticOverlay(ctx, layout, overlay.name, overlay.desc);
-  }, [stateRef, animRef, overlay, drawingsRef]);
+  }, [stateRef, animRef, overlay, drawingsRef, arrowsRef]);
 
   useImperativeHandle(ref, () => ({
     draw,
@@ -76,7 +93,6 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     return () => window.removeEventListener('resize', resize);
   }, [resize]);
 
-  // redraw when overlay changes
   useEffect(() => { draw(); }, [overlay, draw]);
 
   const hitTest = useCallback((px: number, py: number): HitResult | null => {
@@ -103,15 +119,45 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (animRef.current.running) return;
     e.preventDefault();
     const p = getPos(e);
+
+    // Curved arrow phase 1: clicking sets control point, finalize arrow
+    if (toolMode === 'curvedArrow' && curvedPhaseRef.current === 1 && currentArrowRef.current) {
+      currentArrowRef.current.controlPoint = { x: p.x, y: p.y };
+      arrowsRef.current = [...arrowsRef.current, currentArrowRef.current];
+      currentArrowRef.current = null;
+      curvedPhaseRef.current = 0;
+      onDrawingsChange();
+      draw();
+      return;
+    }
+
     const hit = hitTest(p.x, p.y);
-    if (hit) draggingRef.current = hit;
-    else currentStrokeRef.current = { points: [p], color: penColor };
-  }, [animRef, getPos, hitTest, penColor]);
+    if (hit) {
+      draggingRef.current = hit;
+    } else if (toolMode === 'pen') {
+      currentStrokeRef.current = { points: [p], color: penColor };
+    } else {
+      // Arrow tool: start drawing
+      currentArrowRef.current = {
+        start: { x: p.x, y: p.y },
+        end: { x: p.x, y: p.y },
+        color: penColor,
+        lineStyle,
+        type: toolMode === 'curvedArrow' ? 'curved' : 'straight',
+      };
+      if (toolMode === 'curvedArrow') {
+        // Default control point at midpoint
+        currentArrowRef.current.controlPoint = { x: p.x, y: p.y };
+      }
+      curvedPhaseRef.current = 0;
+    }
+  }, [animRef, getPos, hitTest, penColor, toolMode, lineStyle, arrowsRef, onDrawingsChange, draw]);
 
   const onMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (animRef.current.running) return;
     e.preventDefault();
     const p = getPos(e);
+
     if (draggingRef.current) {
       const layout = layoutRef.current;
       if (!layout) return;
@@ -129,8 +175,23 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     } else if (currentStrokeRef.current) {
       currentStrokeRef.current.points.push(p);
       draw();
+    } else if (currentArrowRef.current) {
+      if (toolMode === 'curvedArrow' && curvedPhaseRef.current === 1) {
+        // Adjusting control point
+        currentArrowRef.current.controlPoint = { x: p.x, y: p.y };
+      } else {
+        // Drawing the line
+        currentArrowRef.current.end = { x: p.x, y: p.y };
+        if (toolMode === 'curvedArrow') {
+          // Auto control point at midpoint
+          const s = currentArrowRef.current.start;
+          const e = currentArrowRef.current.end;
+          currentArrowRef.current.controlPoint = { x: (s.x + e.x) / 2, y: (s.y + e.y) / 2 };
+        }
+      }
+      draw();
     }
-  }, [animRef, getPos, stateRef, draw]);
+  }, [animRef, getPos, stateRef, draw, toolMode]);
 
   const onUp = useCallback(() => {
     if (currentStrokeRef.current && currentStrokeRef.current.points.length > 1) {
@@ -139,7 +200,31 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     }
     currentStrokeRef.current = null;
     draggingRef.current = null;
-  }, [drawingsRef, onDrawingsChange]);
+
+    if (currentArrowRef.current) {
+      const a = currentArrowRef.current;
+      const dist = Math.hypot(a.end.x - a.start.x, a.end.y - a.start.y);
+      if (dist < 5) {
+        // Too short, cancel
+        currentArrowRef.current = null;
+        curvedPhaseRef.current = 0;
+        return;
+      }
+
+      if (toolMode === 'curvedArrow' && curvedPhaseRef.current === 0) {
+        // Enter phase 1: user can click to set control point
+        curvedPhaseRef.current = 1;
+        // Don't finalize yet
+        return;
+      }
+
+      // Finalize straight arrow
+      arrowsRef.current = [...arrowsRef.current, a];
+      currentArrowRef.current = null;
+      curvedPhaseRef.current = 0;
+      onDrawingsChange();
+    }
+  }, [drawingsRef, arrowsRef, onDrawingsChange, toolMode]);
 
   return (
     <div ref={wrapRef} className="canvas-wrap">

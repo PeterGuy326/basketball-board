@@ -21,6 +21,7 @@ export interface Step {
 export interface Tactic {
   name: string;
   steps: Step[];
+  isCustom?: boolean;
 }
 
 export interface Overlay {
@@ -31,6 +32,19 @@ export interface Overlay {
 export interface Stroke {
   points: Position[];
   color: string;
+}
+
+// Arrow tool types
+export type ToolMode = 'pen' | 'straightArrow' | 'curvedArrow';
+export type LineStyle = 'solid' | 'dashed' | 'wavy';
+
+export interface Arrow {
+  start: Position;
+  end: Position;
+  controlPoint?: Position;
+  color: string;
+  lineStyle: LineStyle;
+  type: 'straight' | 'curved';
 }
 
 export interface PassAnim {
