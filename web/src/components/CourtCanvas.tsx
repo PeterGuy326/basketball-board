@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef, MutableRefObject, MouseEvent, TouchEvent } from 'react';
 import { calcLayout, canvasToCourt, PLAYER_R, BALL_R } from '../utils/court';
 import { drawCourt, drawPlayer, drawBall, drawStrokes, drawArrows, drawPassTrail, drawMovementTrails, drawTacticOverlay } from '../utils/draw';
-import { GameState, Overlay, Stroke, Arrow, AnimState, Layout, HitResult, CourtCanvasHandle, ToolMode, LineStyle } from '../types';
+import { GameState, Overlay, Stroke, Arrow, AnimState, Layout, HitResult, CourtCanvasHandle, ToolMode, LineStyle, UndoEntry } from '../types';
 
 interface CourtCanvasProps {
   stateRef: MutableRefObject<GameState>;
@@ -10,13 +10,15 @@ interface CourtCanvasProps {
   penColor: string;
   toolMode: ToolMode;
   lineStyle: LineStyle;
+  halfCourt: boolean;
   drawingsRef: MutableRefObject<Stroke[]>;
   arrowsRef: MutableRefObject<Arrow[]>;
+  undoStackRef: MutableRefObject<UndoEntry[]>;
   onDrawingsChange: () => void;
 }
 
 const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function CourtCanvas(
-  { stateRef, animRef, overlay, penColor, toolMode, lineStyle, drawingsRef, arrowsRef, onDrawingsChange },
+  { stateRef, animRef, overlay, penColor, toolMode, lineStyle, halfCourt, drawingsRef, arrowsRef, undoStackRef, onDrawingsChange },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,7 +77,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (!wrap || !canvas) return;
     const ww = wrap.clientWidth, wh = wrap.clientHeight;
     const dpr = window.devicePixelRatio || 1;
-    const layout = calcLayout(ww, wh);
+    const layout = calcLayout(ww, wh, halfCourt);
     canvas.style.width = layout.W + 'px';
     canvas.style.height = layout.H + 'px';
     canvas.width = layout.W * dpr;
@@ -85,7 +87,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     layoutRef.current = layout;
     draw();
-  }, [draw]);
+  }, [draw, halfCourt]);
 
   useEffect(() => {
     resize();
@@ -124,6 +126,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (toolMode === 'curvedArrow' && curvedPhaseRef.current === 1 && currentArrowRef.current) {
       currentArrowRef.current.controlPoint = { x: p.x, y: p.y };
       arrowsRef.current = [...arrowsRef.current, currentArrowRef.current];
+      undoStackRef.current.push({ kind: 'arrow' });
       currentArrowRef.current = null;
       curvedPhaseRef.current = 0;
       onDrawingsChange();
@@ -162,7 +165,8 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
       const layout = layoutRef.current;
       if (!layout) return;
       const m = canvasToCourt(layout, p.x, p.y);
-      m.x = Math.max(0, Math.min(28, m.x));
+      const maxX = halfCourt ? 14 : 28;
+      m.x = Math.max(0, Math.min(maxX, m.x));
       m.y = Math.max(0, Math.min(15, m.y));
       const s = stateRef.current;
       if (draggingRef.current.type === 'ball') {
@@ -196,6 +200,7 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
   const onUp = useCallback(() => {
     if (currentStrokeRef.current && currentStrokeRef.current.points.length > 1) {
       drawingsRef.current = [...drawingsRef.current, currentStrokeRef.current];
+      undoStackRef.current.push({ kind: 'stroke' });
       onDrawingsChange();
     }
     currentStrokeRef.current = null;
@@ -205,26 +210,24 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
       const a = currentArrowRef.current;
       const dist = Math.hypot(a.end.x - a.start.x, a.end.y - a.start.y);
       if (dist < 5) {
-        // Too short, cancel
         currentArrowRef.current = null;
         curvedPhaseRef.current = 0;
         return;
       }
 
       if (toolMode === 'curvedArrow' && curvedPhaseRef.current === 0) {
-        // Enter phase 1: user can click to set control point
         curvedPhaseRef.current = 1;
-        // Don't finalize yet
         return;
       }
 
       // Finalize straight arrow
       arrowsRef.current = [...arrowsRef.current, a];
+      undoStackRef.current.push({ kind: 'arrow' });
       currentArrowRef.current = null;
       curvedPhaseRef.current = 0;
       onDrawingsChange();
     }
-  }, [drawingsRef, arrowsRef, onDrawingsChange, toolMode]);
+  }, [drawingsRef, arrowsRef, undoStackRef, onDrawingsChange, toolMode]);
 
   return (
     <div ref={wrapRef} className="canvas-wrap">

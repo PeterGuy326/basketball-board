@@ -47,6 +47,8 @@ export interface Arrow {
   type: 'straight' | 'curved';
 }
 
+export type UndoEntry = { kind: 'stroke' } | { kind: 'arrow' };
+
 export interface PassAnim {
   from: Position;
   to: Position;
@@ -72,6 +74,7 @@ export interface Layout {
   courtX: number;
   courtY: number;
   scale: number;
+  halfCourt: boolean;
 }
 
 export interface HitResult {

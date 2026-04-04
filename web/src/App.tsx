@@ -3,7 +3,7 @@ import Toolbar from './components/Toolbar';
 import CourtCanvas from './components/CourtCanvas';
 import { useTacticAnimation } from './hooks/useTacticAnimation';
 import { tactics, defaultPositions } from './data/tactics';
-import { GameState, Overlay, Stroke, Arrow, CourtCanvasHandle, ToolMode, LineStyle, Tactic, Step } from './types';
+import { GameState, Overlay, Stroke, Arrow, CourtCanvasHandle, ToolMode, LineStyle, Tactic, Step, UndoEntry } from './types';
 import { saveBoardState, loadBoardState, saveCustomTactic, loadCustomTactics, debounce } from './utils/storage';
 
 export default function App() {
@@ -14,13 +14,22 @@ export default function App() {
   const [overlay, setOverlay] = useState<Overlay>({ name: '', desc: '' });
   const [customTactics, setCustomTactics] = useState<Tactic[]>([]);
 
+  const [halfCourt, setHalfCourt] = useState<boolean>(false);
+
   // Edit mode state
   const [editMode, setEditMode] = useState<boolean>(false);
   const [editSteps, setEditSteps] = useState<Step[]>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
+  const [tacticName, setTacticName] = useState<string>('');
+  const [stepDesc, setStepDesc] = useState<string>('');
+  const [showStepInput, setShowStepInput] = useState<boolean>(false);
+  // Temp snapshot for step recording
+  const pendingStepRef = useRef<Step | null>(null);
 
   const stateRef = useRef<GameState>(defaultPositions());
   const drawingsRef = useRef<Stroke[]>([]);
   const arrowsRef = useRef<Arrow[]>([]);
+  const undoStackRef = useRef<UndoEntry[]>([]);
   const canvasRef = useRef<CourtCanvasHandle>(null);
 
   // Load saved data on mount
@@ -55,8 +64,9 @@ export default function App() {
   }, [autoSave]);
 
   const handleUndo = useCallback(() => {
-    // Undo arrows first if any, then strokes
-    if (arrowsRef.current.length > 0) {
+    const entry = undoStackRef.current.pop();
+    if (!entry) return;
+    if (entry.kind === 'arrow') {
       arrowsRef.current = arrowsRef.current.slice(0, -1);
     } else {
       drawingsRef.current = drawingsRef.current.slice(0, -1);
@@ -68,6 +78,7 @@ export default function App() {
   const handleClear = useCallback(() => {
     drawingsRef.current = [];
     arrowsRef.current = [];
+    undoStackRef.current = [];
     onDrawingsChange();
     requestDraw();
   }, [requestDraw, onDrawingsChange]);
@@ -77,6 +88,7 @@ export default function App() {
     stateRef.current = defaultPositions();
     drawingsRef.current = [];
     arrowsRef.current = [];
+    undoStackRef.current = [];
     setSelectedTactic('');
     setEditMode(false);
     setEditSteps([]);
@@ -126,16 +138,14 @@ export default function App() {
 
   const handleRecordStep = useCallback(() => {
     const s = stateRef.current;
-    const desc = prompt('输入步骤描述（可选）：') || '';
     const step: Step = {
       duration: editSteps.length === 0 ? 0 : 1000,
-      desc,
+      desc: '',
       teamA: s.teamA.map(p => ({ ...p })),
       teamB: s.teamB.map(p => ({ ...p })),
       ball: { ...s.ball },
     };
 
-    // If this is not the first step, try to detect pass
     if (editSteps.length > 0) {
       const prevStep = editSteps[editSteps.length - 1];
       const prevBallHolder = prevStep.teamA.findIndex(
@@ -149,20 +159,36 @@ export default function App() {
       }
     }
 
-    setEditSteps(prev => [...prev, step]);
+    pendingStepRef.current = step;
+    setStepDesc('');
+    setShowStepInput(true);
   }, [editSteps]);
+
+  const handleConfirmStep = useCallback(() => {
+    if (!pendingStepRef.current) return;
+    pendingStepRef.current.desc = stepDesc;
+    setEditSteps(prev => [...prev, pendingStepRef.current!]);
+    pendingStepRef.current = null;
+    setShowStepInput(false);
+    setStepDesc('');
+  }, [stepDesc]);
 
   const handleSaveTactic = useCallback(() => {
     if (editSteps.length < 2) return;
-    const name = prompt('输入战术名称：');
-    if (!name || !name.trim()) return;
-    const tactic: Tactic = { name: name.trim(), steps: editSteps, isCustom: true };
+    setTacticName('');
+    setShowSaveDialog(true);
+  }, [editSteps]);
+
+  const handleConfirmSave = useCallback(() => {
+    if (!tacticName.trim()) return;
+    const tactic: Tactic = { name: tacticName.trim(), steps: editSteps, isCustom: true };
     saveCustomTactic(tactic);
     setCustomTactics(loadCustomTactics());
     setEditSteps([]);
     setEditMode(false);
-    alert(`战术「${name.trim()}」已保存！`);
-  }, [editSteps]);
+    setShowSaveDialog(false);
+    setTacticName('');
+  }, [tacticName, editSteps]);
 
   return (
     <div className="app">
@@ -187,7 +213,35 @@ export default function App() {
         onRecordStep={handleRecordStep}
         onSaveTactic={handleSaveTactic}
         editStepCount={editSteps.length}
+        halfCourt={halfCourt}
+        onToggleHalfCourt={() => setHalfCourt(h => !h)}
       />
+      {showStepInput && (
+        <div className="inline-dialog">
+          <input
+            autoFocus
+            placeholder="步骤描述（可选，回车确认）"
+            value={stepDesc}
+            onChange={e => setStepDesc(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleConfirmStep(); if (e.key === 'Escape') { setShowStepInput(false); pendingStepRef.current = null; } }}
+          />
+          <button onClick={handleConfirmStep}>确认</button>
+          <button onClick={() => { setShowStepInput(false); pendingStepRef.current = null; }}>取消</button>
+        </div>
+      )}
+      {showSaveDialog && (
+        <div className="inline-dialog">
+          <input
+            autoFocus
+            placeholder="输入战术名称"
+            value={tacticName}
+            onChange={e => setTacticName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleConfirmSave(); if (e.key === 'Escape') setShowSaveDialog(false); }}
+          />
+          <button onClick={handleConfirmSave} disabled={!tacticName.trim()}>保存</button>
+          <button onClick={() => setShowSaveDialog(false)}>取消</button>
+        </div>
+      )}
       <CourtCanvas
         ref={canvasRef}
         stateRef={stateRef}
@@ -196,8 +250,10 @@ export default function App() {
         penColor={penColor}
         toolMode={toolMode}
         lineStyle={lineStyle}
+        halfCourt={halfCourt}
         drawingsRef={drawingsRef}
         arrowsRef={arrowsRef}
+        undoStackRef={undoStackRef}
         onDrawingsChange={onDrawingsChange}
       />
     </div>

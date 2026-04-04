@@ -35,6 +35,8 @@ interface ToolbarProps {
   onRecordStep: () => void;
   onSaveTactic: () => void;
   editStepCount: number;
+  halfCourt: boolean;
+  onToggleHalfCourt: () => void;
 }
 
 type DrawTool = `${ToolMode}-${LineStyle}`;
@@ -55,6 +57,7 @@ function Toolbar({
   onUndo, onClear, onReset, onPlay, onStop, onScreenshot,
   selectedTactic, setSelectedTactic, customTactics,
   editMode, onToggleEditMode, onRecordStep, onSaveTactic, editStepCount,
+  halfCourt, onToggleHalfCourt,
 }: ToolbarProps) {
   const currentDrawTool: DrawTool = `${toolMode}-${lineStyle}`;
 
@@ -133,6 +136,13 @@ function Toolbar({
       )}
 
       <div className="sep" />
+      <button
+        className={halfCourt ? 'active' : ''}
+        onClick={onToggleHalfCourt}
+        title={halfCourt ? '切换到全场' : '切换到半场'}
+      >
+        {halfCourt ? '半场' : '全场'}
+      </button>
       <button onClick={onReset} title="重置球员位置和所有标注">⟲ 重置</button>
       <button onClick={onScreenshot} title="导出为PNG图片">📷</button>
     </div>

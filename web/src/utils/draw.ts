@@ -71,8 +71,8 @@ function drawHalf(ctx: CanvasRenderingContext2D, layout: Layout, right: boolean)
 }
 
 export function drawCourt(ctx: CanvasRenderingContext2D, layout: Layout): void {
-  const { courtX, courtY, courtW, courtH } = layout;
-  const midX = courtX + courtW / 2, midY = courtY + courtH / 2;
+  const { courtX, courtY, courtW, courtH, halfCourt } = layout;
+  const midY = courtY + courtH / 2;
 
   // wood floor
   const floorA = '#c8955a', floorB = '#c08e52';
@@ -89,16 +89,28 @@ export function drawCourt(ctx: CanvasRenderingContext2D, layout: Layout): void {
   const paintPx = m2px(layout, PAINT_L), paintHPx = m2px(layout, PAINT_W);
   ctx.fillStyle = PAINT_FILL;
   ctx.fillRect(courtX, midY - paintHPx / 2, paintPx, paintHPx);
-  ctx.fillRect(courtX + courtW - paintPx, midY - paintHPx / 2, paintPx, paintHPx);
+  if (!halfCourt) {
+    ctx.fillRect(courtX + courtW - paintPx, midY - paintHPx / 2, paintPx, paintHPx);
+  }
 
   // outer lines
   ctx.strokeStyle = LINE_COLOR; ctx.lineWidth = 2; ctx.lineCap = 'round';
   ctx.strokeRect(courtX, courtY, courtW, courtH);
-  ctx.beginPath(); ctx.moveTo(midX, courtY); ctx.lineTo(midX, courtY + courtH); ctx.stroke();
-  ctx.beginPath(); ctx.arc(midX, midY, m2px(layout, CENTER_R), 0, Math.PI * 2); ctx.stroke();
 
-  drawHalf(ctx, layout, false);
-  drawHalf(ctx, layout, true);
+  if (halfCourt) {
+    // Half court: draw center line at right edge and half circle
+    const centerR = m2px(layout, CENTER_R);
+    ctx.beginPath();
+    ctx.arc(courtX + courtW, midY, centerR, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.stroke();
+    drawHalf(ctx, layout, false);
+  } else {
+    const midX = courtX + courtW / 2;
+    ctx.beginPath(); ctx.moveTo(midX, courtY); ctx.lineTo(midX, courtY + courtH); ctx.stroke();
+    ctx.beginPath(); ctx.arc(midX, midY, m2px(layout, CENTER_R), 0, Math.PI * 2); ctx.stroke();
+    drawHalf(ctx, layout, false);
+    drawHalf(ctx, layout, true);
+  }
 }
 
 export function drawPlayer(ctx: CanvasRenderingContext2D, layout: Layout, team: string, index: number, pos: Position): void {
