@@ -120,16 +120,19 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (!layout) return null;
     const { x, y } = canvasToCourt(layout, px, py);
     const s = stateRef.current;
-    if (Math.hypot(x - s.ball.x, y - s.ball.y) < BALL_R * 1.5) return { type: 'ball', index: 0 };
-    for (let i = 0; i < 5; i++) if (Math.hypot(x - s.teamA[i].x, y - s.teamA[i].y) < PLAYER_R * 1.3) return { type: 'teamA', index: i };
-    for (let i = 0; i < 5; i++) if (Math.hypot(x - s.teamB[i].x, y - s.teamB[i].y) < PLAYER_R * 1.3) return { type: 'teamB', index: i };
+    // Larger hit area for touch (2x radius for ball, 1.8x for players)
+    if (Math.hypot(x - s.ball.x, y - s.ball.y) < BALL_R * 2) return { type: 'ball', index: 0 };
+    for (let i = 0; i < 5; i++) if (Math.hypot(x - s.teamA[i].x, y - s.teamA[i].y) < PLAYER_R * 1.8) return { type: 'teamA', index: i };
+    for (let i = 0; i < 5; i++) if (Math.hypot(x - s.teamB[i].x, y - s.teamB[i].y) < PLAYER_R * 1.8) return { type: 'teamB', index: i };
     return null;
   }, [stateRef]);
 
   const getPos = useCallback((e: MouseEvent | TouchEvent): { x: number; y: number } => {
     const r = canvasRef.current!.getBoundingClientRect();
-    if ('touches' in e && e.touches.length > 0) {
-      return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    if ('touches' in e) {
+      const te = e as unknown as globalThis.TouchEvent;
+      const touch = te.touches.length > 0 ? te.touches[0] : te.changedTouches[0];
+      if (touch) return { x: touch.clientX - r.left, y: touch.clientY - r.top };
     }
     const me = e as MouseEvent;
     return { x: me.clientX - r.left, y: me.clientY - r.top };
@@ -156,6 +159,8 @@ const CourtCanvas = forwardRef<CourtCanvasHandle, CourtCanvasProps>(function Cou
     if (hit) {
       draggingRef.current = hit;
       if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+      // Haptic feedback on touch devices
+      if (navigator.vibrate) navigator.vibrate(10);
     } else if (toolMode === 'pen') {
       currentStrokeRef.current = { points: [p], color: penColor };
     } else {

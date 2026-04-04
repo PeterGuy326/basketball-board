@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { tactics } from '../data/tactics';
 import { ToolMode, LineStyle, Tactic } from '../types';
 
@@ -80,28 +80,6 @@ function Toolbar({
     setLineStyle(style);
   };
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        onUndo();
-      } else if (e.key === ' ') {
-        e.preventDefault();
-        onPlay();
-      } else if (e.key === 'Escape') {
-        onStop();
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (canDeleteTactic) onDeleteTactic();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onUndo, onPlay, onStop, onDeleteTactic, canDeleteTactic]);
-
   return (
     <div className="toolbar">
       {/* Draw tool selector */}
@@ -125,7 +103,7 @@ function Toolbar({
         />
       ))}
 
-      <button onClick={onUndo} title="撤销 (Ctrl+Z)">↩ 撤销</button>
+      <button onClick={onUndo}>↩ 撤销</button>
       <button onClick={onClear}>🗑 清除</button>
 
       <div className="sep" />
@@ -148,10 +126,10 @@ function Toolbar({
           </optgroup>
         )}
       </select>
-      <button onClick={onPlay} title="播放 (Space)">▶ 播放</button>
-      <button onClick={onStop} title="停止 (Esc)">⏹ 停止</button>
+      <button onClick={onPlay}>▶ 播放</button>
+      <button onClick={onStop}>⏹ 停止</button>
       {canDeleteTactic && (
-        <button onClick={onDeleteTactic} title="删除选中的自定义战术 (Delete)">🗑</button>
+        <button onClick={onDeleteTactic}>🗑</button>
       )}
 
       {/* Speed */}

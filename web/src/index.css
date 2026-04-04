@@ -1,5 +1,5 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0e0e; touch-action: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0e0e; touch-action: none; -webkit-user-select: none; user-select: none; }
 #root { width: 100%; height: 100%; }
 
 .app { display: flex; flex-direction: column; height: 100%; width: 100%; }
@@ -10,49 +10,62 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0e0e; t
   border-bottom: 1px solid #2a2a2a;
 }
 .toolbar button {
-  padding: 5px 10px; border: 1px solid #333; border-radius: 6px;
-  font-size: 12px; cursor: pointer; color: #ccc; background: #1e1e1e;
-  transition: all 0.2s; white-space: nowrap;
+  padding: 8px 14px; border: 1px solid #333; border-radius: 8px;
+  font-size: 14px; cursor: pointer; color: #ccc; background: #1e1e1e;
+  transition: all 0.15s; white-space: nowrap;
+  min-height: 36px; min-width: 36px;
+  -webkit-tap-highlight-color: transparent;
 }
 .toolbar button:hover { background: #333; color: #fff; border-color: #555; }
-.toolbar button:active { background: #444; }
+.toolbar button:active { background: #444; transform: scale(0.95); }
 .toolbar button.active { background: #2a6; color: #fff; border-color: #2a6; }
 .toolbar button.edit-btn.active { background: #c0392b; border-color: #c0392b; }
-.toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.toolbar button:disabled { opacity: 0.4; }
 .toolbar select {
-  padding: 5px 8px; border: 1px solid #333; border-radius: 6px;
-  font-size: 12px; cursor: pointer; color: #ccc; background: #1e1e1e;
-  outline: none;
+  padding: 8px 10px; border: 1px solid #333; border-radius: 8px;
+  font-size: 14px; cursor: pointer; color: #ccc; background: #1e1e1e;
+  outline: none; min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
 }
-.toolbar .sep { width: 1px; height: 24px; background: #2a2a2a; }
-.toolbar .label { color: #666; font-size: 12px; }
+.toolbar .sep { width: 1px; height: 28px; background: #2a2a2a; }
 .toolbar .color-dot {
-  width: 18px; height: 18px; border-radius: 50%; border: 2px solid #444;
+  width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid #444;
   cursor: pointer; transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
-.toolbar .color-dot:hover { transform: scale(1.15); border-color: #888; }
-.toolbar .color-dot.active { border-color: #fff; transform: scale(1.2); box-shadow: 0 0 8px rgba(255,255,255,0.2); }
+.toolbar .color-dot:hover { border-color: #888; }
+.toolbar .color-dot.active { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.25); }
 
 .toolbar .draw-tool-select { min-width: 130px; }
-.toolbar .speed-select { width: 55px; }
+.toolbar .speed-select { width: 60px; }
 
 .inline-dialog {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 12px; background: #1a1a1a; border-bottom: 1px solid #333;
+  padding: 8px 12px; background: #1a1a1a; border-bottom: 1px solid #333;
   flex-shrink: 0;
 }
 .inline-dialog input {
-  flex: 1; max-width: 300px; padding: 5px 10px;
-  border: 1px solid #444; border-radius: 6px;
-  font-size: 13px; color: #eee; background: #222; outline: none;
+  flex: 1; max-width: 300px; padding: 8px 12px;
+  border: 1px solid #444; border-radius: 8px;
+  font-size: 15px; color: #eee; background: #222; outline: none;
 }
 .inline-dialog input:focus { border-color: #2a6; }
 .inline-dialog button {
-  padding: 5px 12px; border: 1px solid #333; border-radius: 6px;
-  font-size: 12px; cursor: pointer; color: #ccc; background: #1e1e1e;
+  padding: 8px 14px; border: 1px solid #333; border-radius: 8px;
+  font-size: 14px; cursor: pointer; color: #ccc; background: #1e1e1e;
+  min-height: 36px;
 }
 .inline-dialog button:hover { background: #333; color: #fff; }
-.inline-dialog button:disabled { opacity: 0.4; cursor: not-allowed; }
+.inline-dialog button:disabled { opacity: 0.4; }
 
 .canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-canvas { display: block; }
+canvas { display: block; touch-action: none; }
+
+/* Mobile: tighter toolbar, keep touch targets big */
+@media (max-width: 768px) {
+  .toolbar { gap: 5px; padding: 6px 8px; }
+  .toolbar button { padding: 6px 10px; font-size: 13px; min-height: 34px; }
+  .toolbar select { padding: 6px 8px; font-size: 13px; min-height: 34px; }
+  .toolbar .sep { height: 24px; }
+  .toolbar .draw-tool-select { min-width: 110px; }
+}
